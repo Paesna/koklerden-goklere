@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Elektrik ve Elektronik Laboratuvarı · Köklerden Göklere</title>
+<meta name="description" content="Köklerden Göklere 5. hafta: elektrik ve elektronik için etkileşimli üç boyutlu simülasyonlar.">
+<link rel="stylesheet" href="lib/fonts.css">
+<style>
+:root{
+  --paper:#F5F5F1;--surface:#FFFFFF;--line:#E3E3DD;--ink:#15171C;--muted:#595E69;
+  --blue:#2343B0;--copper:#A64B22;--copper-fill:#C8693A;
+  --night:#0E121A;--night-2:#161B26;--night-line:#262D3B;--on-night:#EEF0F3;--on-night-muted:#9AA3B2;
+  --blue-light:#8EA6F2;--copper-light:#E39A6C;
+  --sans:"IBM Plex Sans","Segoe UI",system-ui,-apple-system,sans-serif;
+  --mono:"IBM Plex Mono",Consolas,"SFMono-Regular",Menlo,monospace;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{background:var(--paper);color:var(--ink);font:400 16px/1.55 var(--sans);display:flex;flex-direction:column;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+button,input{font:inherit;color:inherit}
+button{cursor:pointer}
+[hidden]{display:none !important}
+:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+
+.top{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 28px;border-bottom:1px solid var(--line)}
+.brand{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap}
+.brand strong{font-weight:600;font-size:16px;letter-spacing:.005em}
+.brand span{color:var(--muted);font-size:15px}
+.who{font:400 13px var(--mono);color:var(--muted);white-space:nowrap}
+
+.tabs{display:flex;gap:2px;padding:0 16px;border-bottom:1px solid var(--line);overflow-x:auto;scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+.tab{display:flex;align-items:baseline;gap:8px;min-height:48px;padding:13px 14px 11px;border:0;border-bottom:2px solid transparent;background:none;color:var(--muted);font-weight:500;font-size:15px;white-space:nowrap}
+.tab .n{font:500 12px var(--mono);letter-spacing:.04em}
+.tab:hover{color:var(--ink)}
+.tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--ink)}
+.tab[aria-selected="true"] .n{color:var(--blue)}
+.tab:focus-visible{outline-offset:-2px}
+
+.lab{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1.9fr) minmax(360px,1fr)}
+.stage{position:relative;min-height:480px;overflow:hidden;color:var(--on-night);background:radial-gradient(120% 90% at 50% 38%,#182030 0%,#0E121A 62%)}
+.stage>canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+#c2d{display:none}
+.stage.two-d #c2d{display:block}
+.stage.two-d #gl{visibility:hidden}
+.stage-head{position:absolute;left:24px;top:20px;pointer-events:none;max-width:55%}
+.stage-head .k{font:500 12px var(--mono);letter-spacing:.08em;color:var(--on-night-muted);text-transform:uppercase}
+.stage-head .t{font-weight:500;font-size:20px;margin-top:4px;line-height:1.25}
+.stage-tools{position:absolute;right:16px;top:14px;display:flex;gap:8px}
+.ghost{min-height:44px;padding:0 16px;border:1px solid var(--night-line);background:rgba(14,18,26,.62);color:var(--on-night);border-radius:10px;font-size:14px;font-weight:500;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
+.ghost:hover{border-color:#3a4356}
+.stage-note{position:absolute;left:24px;bottom:18px;margin:0;font:400 12px/1.5 var(--mono);color:var(--on-night-muted);max-width:58%;pointer-events:none}
+.stage-hint{position:absolute;right:20px;bottom:18px;margin:0;font:400 12px var(--mono);color:#6f7889;pointer-events:none}
+.stage>canvas.inset{inset:auto;right:20px;bottom:48px;width:300px;height:132px;border:1px solid var(--night-line);border-radius:10px;background:rgba(14,18,26,.8);pointer-events:none}
+.eqn{position:absolute;left:50%;top:22px;transform:translateX(-50%);font:500 21px var(--mono);color:var(--on-night);background:rgba(14,18,26,.72);border:1px solid var(--night-line);border-radius:10px;padding:10px 16px;white-space:nowrap;pointer-events:none}
+.fail{position:absolute;inset:0;display:grid;place-items:center;padding:40px;text-align:center;color:var(--on-night-muted);font-size:15px;background:var(--night)}
+.fail p{max-width:520px}
+
+#labels{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.lbl{position:absolute;left:0;top:0;will-change:transform;transition:opacity .3s}
+.lbl::before{content:"";position:absolute;left:-3px;top:-3px;width:6px;height:6px;border-radius:50%;background:var(--on-night)}
+.lbl::after{content:"";position:absolute;left:0;top:-23px;width:1px;height:20px;background:rgba(238,240,243,.45)}
+.lbl span{position:absolute;bottom:23px;left:0;transform:translateX(-50%);white-space:nowrap;font:500 12.5px var(--mono);color:var(--on-night);background:rgba(14,18,26,.84);border:1px solid var(--night-line);padding:4px 9px;border-radius:6px}
+.lbl.flat::before,.lbl.flat::after{display:none}
+.lbl.flat span{bottom:auto;top:0;transform:translate(-50%,-50%)}
+
+.journey{position:absolute;left:28px;bottom:26px;max-width:min(560px,62%);pointer-events:none}
+.jscale{font:500 46px/1 var(--mono);letter-spacing:-.01em;color:var(--on-night)}
+.jscale small{font:400 15px var(--mono);color:var(--on-night-muted);margin-left:14px;letter-spacing:0}
+.jname{font-weight:600;font-size:22px;margin:10px 0 6px}
+.jtext{margin:0;font-size:15.5px;line-height:1.55;color:#D5DAE2;transition:opacity .35s}
+.jtag{display:inline-block;font:500 11.5px var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--copper-light);border:1px solid rgba(227,154,108,.45);border-radius:6px;padding:3px 8px;margin-bottom:10px}
+.jbar{position:absolute;left:28px;right:28px;bottom:10px;height:2px;background:rgba(238,240,243,.12);pointer-events:none}
+.jbar i{position:absolute;left:0;top:0;bottom:0;background:var(--on-night-muted);width:0}
+
+.panel{overflow-y:auto;border-left:1px solid var(--line);background:var(--paper)}
+.mp{padding:28px 30px 48px;max-width:580px}
+.kicker{font:500 12px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--blue);margin:0 0 8px}
+.mp h2{font-size:28px;line-height:1.2;font-weight:600;margin:0 0 10px;letter-spacing:-.01em}
+.lead{color:#3a3e47;font-size:16.5px;margin:0 0 22px}
+.group{margin:0 0 18px}
+.glabel{display:flex;justify-content:space-between;align-items:baseline;font-size:13px;font-weight:500;color:var(--muted);margin-bottom:8px}
+.glabel output{font:500 14px var(--mono);color:var(--ink)}
+.seg{display:flex;gap:2px;padding:3px;background:#EBEBE5;border-radius:11px}
+.seg button{flex:1;min-height:44px;border:0;border-radius:8px;background:none;color:var(--muted);font-weight:500;font-size:14.5px;padding:0 10px;line-height:1.2}
+.seg button:hover{color:var(--ink)}
+.seg button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(21,23,28,.08),0 0 0 1px var(--line)}
+.btn{min-height:44px;padding:0 18px;border:1px solid var(--line);border-radius:10px;background:var(--surface);font-weight:500;font-size:15px}
+.btn:hover{border-color:#cfcfc7}
+.btn.on{background:var(--ink);border-color:var(--ink);color:#fff}
+.btn.primary{background:var(--blue);border-color:var(--blue);color:#fff}
+.btn.primary:hover{background:#1c3896}
+.btn-row{display:flex;gap:8px;flex-wrap:wrap}
+input[type=range]{width:100%;height:44px;accent-color:var(--blue);margin:0}
+.readouts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));border-top:1px solid var(--line);border-bottom:1px solid var(--line);margin:22px 0;padding:0}
+.readouts>div{padding:14px 10px 14px 0;min-width:0}
+.readouts>div+div{padding-left:14px;border-left:1px solid var(--line)}
+.readouts dt{font-size:12.5px;color:var(--muted);margin-bottom:4px}
+.readouts dd{margin:0;font:500 19px var(--mono);font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.readouts dd.txt{font:500 16px var(--sans)}
+.status{font-size:15px;margin:0 0 18px;min-height:1.5em}
+.status.warn{color:var(--copper)}
+.prose p{margin:0 0 12px}
+.big{font-size:22px;font-weight:500;line-height:1.35;margin:24px 0 10px;letter-spacing:-.01em}
+.note{font-size:14.5px;color:#3a3e47;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin:16px 0}
+.science{margin-top:26px;padding-top:18px;border-top:1px solid var(--line)}
+.science h3,.sub{font:500 12px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:0 0 8px}
+.sub{margin-top:30px;padding-top:18px;border-top:1px solid var(--line)}
+.science p{font-size:14px;color:var(--muted);margin:0 0 8px}
+.small{font-size:14.5px;color:#3a3e47}
+.src{font:400 12px/1.5 var(--mono);color:var(--muted)}
+.mono{font-family:var(--mono)}
+.chips{display:flex;gap:8px;flex-wrap:wrap;margin:4px 0 6px}
+.el{width:78px;border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:6px 8px 7px}
+.el .z{font:400 11px var(--mono);color:var(--muted)}
+.el .s{font-size:24px;font-weight:600;line-height:1.1}
+.el .nm{font-size:11.5px}
+.el .cl{font:500 10px var(--mono);text-transform:uppercase;letter-spacing:.04em;margin-top:2px;color:var(--blue)}
+.el.metal .cl{color:var(--copper)}
+.el.yari .cl{color:var(--muted)}
+.cmp{width:100%;border-collapse:collapse;font-size:14.5px;margin:6px 0 4px}
+.cmp th,.cmp td{text-align:left;padding:9px 0;border-bottom:1px solid var(--line);font-weight:400}
+.cmp th{color:var(--muted);font-size:12.5px;font-weight:500}
+.cmp td.mono{text-align:right}
+ol.steps{padding-left:20px;margin:6px 0 12px}
+ol.steps li{margin:0 0 9px;font-size:15px}
+.meter{height:8px;background:#E7E7E0;border-radius:99px;overflow:hidden}
+.meter i{display:block;height:100%;background:var(--copper-fill);width:100%;transition:width .3s}
+.zones{list-style:none;margin:18px 0;padding:0;border-top:1px solid var(--line)}
+.zones li{display:grid;grid-template-columns:92px 1fr;gap:12px;padding:11px 0;border-bottom:1px solid var(--line);font-size:14.5px;color:var(--muted)}
+.zones li .r{font:500 13px var(--mono);color:var(--ink)}
+.zones li[aria-current="true"]{color:var(--ink);font-weight:500}
+.zones li[aria-current="true"] .r{color:var(--copper)}
+.codes{margin:0;font:500 14px/1.6 var(--mono)}
+.bits{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:6px;margin:12px 0 4px}
+.bit{min-height:64px;border:1px solid var(--line);background:var(--surface);border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:0}
+.bit .v{font:500 20px var(--mono)}
+.bit .w{font:400 11px var(--mono);color:var(--muted)}
+.bit[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:#fff}
+.bit[aria-pressed="true"] .w{color:#b9bec8}
+.ticks{position:relative;height:10px;margin:-6px 9px 0}
+.ticks i{position:absolute;top:0;width:1px;height:8px;background:#b9bcc4}
+.stops{list-style:none;margin:6px 0 0;padding:0;border-top:1px solid var(--line)}
+.stops li{border-bottom:1px solid var(--line)}
+.stops button{width:100%;min-height:44px;display:grid;grid-template-columns:92px 1fr;gap:12px;align-items:center;text-align:left;border:0;background:none;padding:8px 0;font-size:15px;color:var(--muted)}
+.stops button .sc{font:500 13px var(--mono);color:var(--muted)}
+.stops button:hover{color:var(--ink)}
+.stops button[aria-current="true"]{color:var(--ink);font-weight:500}
+.stops button[aria-current="true"] .sc{color:var(--blue)}
+.stopinfo{margin:22px 0 0;padding:18px;background:var(--surface);border:1px solid var(--line);border-radius:12px}
+.stopinfo h3{margin:0 0 8px;font-size:19px;font-weight:600}
+.stopinfo .kicker{margin-bottom:4px}
+.stopinfo .prose p{font-size:15px}
+
+@media (max-width:980px){
+  html,body{height:auto}
+  .lab{grid-template-columns:1fr}
+  .stage{height:66vh;min-height:380px}
+  .panel{border-left:0;border-top:1px solid var(--line);overflow:visible}
+  .jscale{font-size:34px}
+  .journey{max-width:calc(100% - 56px)}
+  .stage-note{max-width:calc(100% - 48px)}
+  .stage-hint{display:none}
+}
+@media (max-width:560px){
+  .top{padding:12px 16px}
+  .mp{padding:22px 16px 40px}
+  .readouts{grid-template-columns:1fr}
+  .readouts>div+div{padding-left:0;border-left:0;border-top:1px solid var(--line)}
+  .stage>canvas.inset{width:220px;height:110px;right:12px}
+  .stage-tools .ghost{padding:0 12px;font-size:13px}
+}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="brand"><strong>Köklerden Göklere</strong><span>Elektrik ve Elektronik Laboratuvarı</span></div>
+  <div class="who">5. Hafta · Taha Deniz Akgül</div>
+</header>
+
+<nav class="tabs" role="tablist" aria-label="Modüller">
+  <button class="tab" role="tab" id="tab-0" aria-controls="mp-0" aria-selected="true"><span class="n">00</span>Ölçek Yolculuğu</button>
+  <button class="tab" role="tab" id="tab-1" aria-controls="mp-1" aria-selected="false" tabindex="-1"><span class="n">01</span>Malzemenin İçi</button>
+  <button class="tab" role="tab" id="tab-2" aria-controls="mp-2" aria-selected="false" tabindex="-1"><span class="n">02</span>Kablonun İçi</button>
+  <button class="tab" role="tab" id="tab-3" aria-controls="mp-3" aria-selected="false" tabindex="-1"><span class="n">03</span>Pilin İçi</button>
+  <button class="tab" role="tab" id="tab-4" aria-controls="mp-4" aria-selected="false" tabindex="-1"><span class="n">04</span>Devre ve Ohm</button>
+  <button class="tab" role="tab" id="tab-5" aria-controls="mp-5" aria-selected="false" tabindex="-1"><span class="n">05</span>Vücut ve Akım</button>
+  <button class="tab" role="tab" id="tab-6" aria-controls="mp-6" aria-selected="false" tabindex="-1"><span class="n">06</span>Sinyal</button>
+</nav>
+
+<main class="lab">
+  <section class="stage" id="stage" aria-label="Simülasyon görünümü">
+    <canvas id="gl" aria-hidden="true"></canvas>
+    <canvas id="c2d" role="img" aria-label="Osiloskop ekranı: analog ve dijital sinyaller"></canvas>
+    <div id="labels" aria-hidden="true"></div>
+    <canvas id="wave" class="inset" aria-hidden="true"></canvas>
+    <div id="eqn" class="eqn" hidden></div>
+    <div class="journey" id="jov" hidden aria-live="polite">
+      <div id="jtag" class="jtag" hidden></div>
+      <div class="jscale" id="jscale">10⁷ m</div>
+      <div class="jname" id="jname">Dünya</div>
+      <p class="jtext" id="jtext"></p>
+    </div>
+    <div class="jbar" id="jbar" hidden><i id="jbari"></i></div>
+    <div class="stage-head"><div class="k" id="sk">Modül 00</div><div class="t" id="stt">Ölçek Yolculuğu</div></div>
+    <div class="stage-tools"><button class="ghost" id="btn-reset" type="button">Kamerayı sıfırla</button><button class="ghost" id="btn-fs" type="button">Tam ekran</button></div>
+    <p class="stage-note" id="snote"></p>
+    <p class="stage-hint" id="shint">Sürükle: döndür · Tekerlek: yakınlaştır · Sağ tık: kaydır</p>
+    <div class="fail" id="fail" hidden><p id="failmsg"></p></div>
+  </section>
+
+  <aside class="panel" id="panel">
+
+    <!-- 00 -->
+    <section class="mp" id="mp-0" role="tabpanel" aria-labelledby="tab-0">
+      <p class="kicker">Modül 00 · Ölçek</p>
+      <h2>Ölçek Yolculuğu</h2>
+      <p class="lead">Uzaydan başlayıp bir sınıftaki şarj kablosunun içine, oradan bir bakır atomunun çekirdeğine kadar iniyoruz. Her durakta neye baktığımızı ve ne kadar büyük olduğunu görüyoruz.</p>
+      <div class="group"><div class="glabel" id="m0-dl">Yön</div>
+        <div class="seg" role="group" aria-labelledby="m0-dl" id="m0-dir"><button data-v="down" aria-pressed="true">Uzaydan atoma</button><button data-v="up" aria-pressed="false">Atomdan uzaya</button></div>
+      </div>
+      <div class="group btn-row"><button class="btn primary" id="m0-play" type="button">Yolculuğu başlat</button></div>
+      <div class="group">
+        <label class="glabel" for="m0-scrub"><span>Ölçek çizelgesi</span><output id="m0-so">10⁷ m</output></label>
+        <input type="range" id="m0-scrub" min="0" max="1000" step="1" value="0">
+        <div class="ticks" id="m0-ticks" aria-hidden="true"></div>
+      </div>
+      <ol class="stops" id="m0-stops"></ol>
+      <div class="stopinfo" id="m0-info">
+        <p class="kicker" id="m0-iscale">10⁷ m</p>
+        <h3 id="m0-ititle">Dünya</h3>
+        <div class="prose" id="m0-itext"></div>
+        <div class="btn-row" id="m0-iact"></div>
+      </div>
+      <div class="science"><h3>Bilimsel arka plan</h3>
+        <p>Ölçek göstergesi, ekranda görünen alanın yüksekliğidir. Her durak bir öncekinden kabaca on kat ya da daha fazla küçüktür; bu yüzden çizelge logaritmiktir: eşit adımlar, eşit çarpanlar demektir.</p>
+        <p>Elektron bulutları hidrojen benzeri orbital yaklaşımıyla çizilmiştir; boyutlar yaklaşıktır. Elektronun yükü ve kütlesi CODATA 2018 değerleridir.</p>
+        <p class="src">Uydu görüntüleri: Sentinel-2 cloudless 2016, EOX IT Services GmbH (Copernicus Sentinel verisi, CC BY 4.0). Bulut, gece ışıkları ve okyanus parlaklığı: NASA verilerinden türetilmiş dokular.</p>
+      </div>
+    </section>
+
+    <!-- 01 -->
+    <section class="mp" id="mp-1" role="tabpanel" aria-labelledby="tab-1" hidden>
+      <p class="kicker">Modül 01 · Elektrik nedir?</p>
+      <h2>Malzemenin İçi</h2>
+      <p class="lead">Bazı maddeler elektriği iletir, bazıları iletmez. Cevap, atomların elektronlarını nasıl tuttuğunda saklı.</p>
+      <div class="group"><div class="glabel" id="m1-l">Malzeme</div>
+        <div class="seg" role="group" aria-labelledby="m1-l" id="m1-mat"><button data-v="cu" aria-pressed="true">Bakır</button><button data-v="ker" aria-pressed="false">Tırnak</button><button data-v="si" aria-pressed="false">Silisyum</button></div>
+      </div>
+      <div class="group btn-row"><button class="btn" id="m1-volt" type="button">Gerilim uygula</button></div>
+      <div class="group" id="m1-tg" hidden>
+        <label class="glabel" for="m1-temp"><span>Sıcaklık</span><output id="m1-to">24 °C</output></label>
+        <input type="range" id="m1-temp" min="0" max="100" step="1" value="32">
+      </div>
+      <div class="chips" id="m1-chips"></div>
+      <dl class="readouts">
+        <div><dt>Serbest elektron</dt><dd class="txt" id="m1-free">Çok</dd></div>
+        <div><dt>Bağ türü</dt><dd class="txt" id="m1-bond">Metalik</dd></div>
+        <div><dt>Davranış</dt><dd class="txt" id="m1-beh">İletken</dd></div>
+      </dl>
+      <div class="prose" id="m1-text"></div>
+      <div class="science"><h3>Bilimsel arka plan</h3><p id="m1-sci"></p></div>
+    </section>
+
+    <!-- 02 -->
+    <section class="mp" id="mp-2" role="tabpanel" aria-labelledby="tab-2" hidden>
+      <p class="kicker">Modül 02 · Doğru akım ve alternatif akım</p>
+      <h2>Kablonun İçi</h2>
+      <p class="lead">Anahtara bastığınız anda lamba yanar. Peki elektronlar gerçekten o kadar hızlı mı?</p>
+      <div class="group"><div class="glabel" id="m2-l">Akım türü</div>
+        <div class="seg" role="group" aria-labelledby="m2-l" id="m2-mode"><button data-v="dc" aria-pressed="true">Doğru akım (DC)</button><button data-v="ac" aria-pressed="false">Alternatif akım (AC)</button></div>
+      </div>
+      <div class="group btn-row"><button class="btn" id="m2-on" type="button">Devreyi tamamla</button></div>
+      <p class="status" id="m2-status" role="status" aria-live="polite"></p>
+      <dl class="readouts">
+        <div><dt>Elektronların hızı</dt><dd>≈ 0,05 mm/s</dd></div>
+        <div><dt>Enerjinin hızı</dt><dd>≈ 200.000 km/s</dd></div>
+        <div><dt id="m2-r3t">Yön</dt><dd class="txt" id="m2-r3">Sabit</dd></div>
+      </dl>
+      <div class="prose" id="m2-text"></div>
+      <p class="big">Taşınan şey madde değil, enerjidir.</p>
+      <div class="prose"><p>Devre tamamlandığı anda kablo boyunca bir elektrik alanı neredeyse ışık hızında yayılır ve kablonun her yerindeki elektronlar aynı anda harekete geçer. Lambanın içindeki elektronlar zaten oradadır; santralden gelmezler.</p></div>
+      <table class="cmp">
+        <caption class="sub" style="text-align:left;caption-side:top;border:0;padding:0;margin:14px 0 4px">10 metrelik bir kablo boyunca</caption>
+        <tr><th scope="col">Ne yol alıyor?</th><th scope="col" style="text-align:right">Geçiş süresi</th></tr>
+        <tr><td>Bir elektron (DC, 1 A)</td><td class="mono">≈ 2,4 gün</td></tr>
+        <tr><td>Enerji (elektromanyetik alan)</td><td class="mono">≈ 50 nanosaniye</td></tr>
+      </table>
+      <div class="science"><h3>Bilimsel arka plan</h3>
+        <p>Sürüklenme hızı v = I / (n · A · e) ile bulunur. Bakırda n ≈ 8,5 × 10²⁸ serbest elektron/m³ vardır; 1,5 mm² kesitli kabloda 1 A için v ≈ 0,049 mm/s, yani saatte yaklaşık 18 cm. 50 Hz alternatif akımda elektronların ileri geri salınım genişliği yaklaşık 0,2 mikrometredir. Kablolarda enerji, yalıtkana bağlı olarak ışık hızının yaklaşık %60–80'i ile yayılır.</p>
+        <p class="src">Türkiye şebekesi: 230 V, 50 Hz (TS EN 50160)</p>
+      </div>
+    </section>
+
+    <!-- 03 -->
+    <section class="mp" id="mp-3" role="tabpanel" aria-labelledby="tab-3" hidden>
+      <p class="kicker">Modül 03 · Enerji ve pil</p>
+      <h2>Pilin İçi</h2>
+      <p class="lead">Pil elektrik depolamaz. Kimyasal enerji depolar ve devre tamamlandığında onu elektrik enerjisine çevirir.</p>
+      <div class="group btn-row"><button class="btn" id="m3-on" type="button">Devreyi tamamla</button><button class="btn" id="m3-reset" type="button">Hücreyi yenile</button></div>
+      <div class="group">
+        <div class="glabel"><span>Tepkimeye girebilecek madde</span><output id="m3-ro">%100</output></div>
+        <div class="meter" role="progressbar" aria-label="Tepkimeye girebilecek madde" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100" id="m3-meter"><i id="m3-bar"></i></div>
+      </div>
+      <p class="status" id="m3-status" role="status" aria-live="polite"></p>
+      <dl class="readouts">
+        <div><dt>Hücre gerilimi</dt><dd>≈ 1,10 V</dd></div>
+        <div><dt>Eksi uç</dt><dd class="txt">Çinko</dd></div>
+        <div><dt>Artı uç</dt><dd class="txt">Bakır</dd></div>
+      </dl>
+      <ol class="steps">
+        <li><strong>Çinko tarafı.</strong> Çinko atomları elektronlarını bırakıp çözeltiye iyon olarak geçer: <span class="mono">Zn → Zn²⁺ + 2e⁻</span></li>
+        <li><strong>Dış devre.</strong> Serbest kalan elektronlar teller ve lamba üzerinden bakır tarafa akar. Lambayı yakan enerji bu akıştır.</li>
+        <li><strong>Bakır tarafı.</strong> Çözeltideki bakır iyonları bu elektronları alıp metal bakıra dönüşür: <span class="mono">Cu²⁺ + 2e⁻ → Cu</span></li>
+        <li><strong>Tuz köprüsü.</strong> İyonların geçtiği köprü iki kabın yük dengesini korur; o olmadan akım birkaç an içinde durur.</li>
+      </ol>
+      <div class="note">Biten bir pil elektronlarını kaybetmiş değildir. Elektronlar hâlâ oradadır; onları dış devreye itecek kimyasal tepkime durmuştur.</div>
+      <div class="science"><h3>Bilimsel arka plan</h3>
+        <p>Bu düzenek Daniell hücresidir (1836). İlk pil, Alessandro Volta'nın 1800 yılında çinko ve bakır diskleri tuzlu suya batırılmış kartonlarla üst üste dizerek yaptığı Volta pilidir; gerilim birimi volt onun adını taşır. Bakır iyonları tükendikçe çözeltinin mavi rengi açılır. Görselde tepkime hızlandırılmıştır.</p>
+      </div>
+    </section>
+
+    <!-- 04 -->
+    <section class="mp" id="mp-4" role="tabpanel" aria-labelledby="tab-4" hidden>
+      <p class="kicker">Modül 04 · Formülün anlamı</p>
+      <h2>Devre ve Ohm</h2>
+      <p class="lead">Gerilim iter, direnç sınırlar; akım bu ikisinin sonucudur.</p>
+      <div class="group"><label class="glabel" for="m4-v"><span>Gerilim</span><output id="m4-vo">5,0 V</output></label><input type="range" id="m4-v" min="0" max="12" step="0.1" value="5"></div>
+      <div class="group"><label class="glabel" for="m4-r"><span>Direnç</span><output id="m4-ro">220 Ω</output></label><input type="range" id="m4-r" min="10" max="1000" step="10" value="220"></div>
+      <div class="group btn-row"><button class="btn" id="m4-on" type="button">Devreyi aç</button><button class="btn" id="m4-rev" type="button">LED'i ters çevir</button><button class="btn" id="m4-new" type="button" hidden>Yeni LED tak</button></div>
+      <p class="status" id="m4-status" role="status" aria-live="polite"></p>
+      <dl class="readouts">
+        <div><dt>Gerilim</dt><dd id="m4-rv">5,0 V</dd></div>
+        <div><dt>Akım</dt><dd id="m4-ri">14,5 mA</dd></div>
+        <div><dt>Güç</dt><dd id="m4-rp">73 mW</dd></div>
+      </dl>
+      <div class="group"><div class="glabel">Direncin renk kodu</div><p class="codes" id="m4-code"></p></div>
+      <p class="big">I = V / R</p>
+      <div class="prose">
+        <p>Formülü hesap için değil, anlamı için okuyun: akış, itişin engele oranıdır. İtiş artarsa akış artar; engel artarsa akış azalır. Direnç olmasaydı akımı sınırlayan hiçbir şey kalmazdı. Bu yüzden direnç bir engel değil, bir kontrol aracıdır.</p>
+        <p>Güç (P = V × I), ne kadar sert ittiğinizle ne kadar çok taşıdığınızın çarpımıdır.</p>
+      </div>
+      <div class="science"><h3>Bilimsel arka plan</h3>
+        <p>Kırmızı bir LED yaklaşık 1,8 V'ta iletmeye başlar; bu yüzden devredeki akım yaklaşık I = (V − 1,8 V) / R ile bulunur. Standart 5 mm LED'ler yaklaşık 20 mA için tasarlanır; 30 mA civarı sürekli akım üst sınırıdır. LED bir diyottur ve akımı yalnızca tek yönde geçirir: uzun bacak anot (+), kısa bacak katottur (−).</p>
+        <p class="src">Georg Simon Ohm, 1827</p>
+      </div>
+    </section>
+
+    <!-- 05 -->
+    <section class="mp" id="mp-5" role="tabpanel" aria-labelledby="tab-5" hidden>
+      <p class="kicker">Modül 05 · Güvenlik bilimi</p>
+      <h2>Vücut ve Akım</h2>
+      <p class="lead">“Prize elimi sokarsam ne olur?” Bu sorunun cevabı deneyle değil, uluslararası standartlara giren ölçülmüş verilerle verilir.</p>
+      <div class="group"><div class="glabel" id="m5-l1">Kaynak</div>
+        <div class="seg" role="group" aria-labelledby="m5-l1" id="m5-src"><button data-v="0" aria-pressed="false">1,5 V pil</button><button data-v="1" aria-pressed="false">5 V USB</button><button data-v="2" aria-pressed="false">12 V akü</button><button data-v="3" aria-pressed="true">230 V priz</button></div>
+      </div>
+      <div class="group"><div class="glabel" id="m5-l2">Deri</div>
+        <div class="seg" role="group" aria-labelledby="m5-l2" id="m5-skin"><button data-v="dry" aria-pressed="true">Kuru</button><button data-v="wet" aria-pressed="false">Islak</button></div>
+      </div>
+      <dl class="readouts">
+        <div><dt>Gerilim</dt><dd id="m5-v">230 V</dd></div>
+        <div><dt>Vücut direnci</dt><dd id="m5-r">≈ 2 kΩ</dd></div>
+        <div><dt>Akım</dt><dd id="m5-i">≈ 115 mA</dd></div>
+      </dl>
+      <p class="status" id="m5-status" role="status" aria-live="polite"></p>
+      <ol class="zones" id="m5-zones">
+        <li data-z="0"><span class="r">&lt; 0,5 mA</span><span>Genellikle hissedilmez.</span></li>
+        <li data-z="1"><span class="r">0,5–10 mA</span><span>Hissedilir; karıncalanma ve istemsiz kas kasılması başlar.</span></li>
+        <li data-z="2"><span class="r">≈ 10 mA</span><span>Bırakamama eşiği: kaslar kasıldığı için el, tuttuğu teli bırakamaz.</span></li>
+        <li data-z="3"><span class="r">≈ 30 mA</span><span>Solunum kasları etkilenebilir. Evlerdeki kaçak akım rölesi bu seviyede devreyi keser.</span></li>
+        <li data-z="4"><span class="r">≥ 50 mA</span><span>Kalp ritmi bozulabilir (ventriküler fibrilasyon). Süre uzadıkça risk artar.</span></li>
+      </ol>
+      <div class="prose">
+        <p><strong>Kuş neden çarpılmaz?</strong> Tek bir telin üzerinde duran kuşun iki ayağı aynı gerilimdedir. Arada potansiyel farkı olmadığı için vücudundan akım geçmez.</p>
+        <p><strong>Kapı kolundaki çarpılma.</strong> Statik elektrik birkaç bin volt olabilir, ama taşıdığı yük çok küçük ve süresi çok kısa olduğu için tehlikeli bir akım oluşmaz.</p>
+      </div>
+      <div class="science"><h3>Bilimsel arka plan</h3>
+        <p>Akım eşikleri, IEC 60479-1 standardındaki 50 Hz alternatif akım verilerinden yaklaşık olarak alınmıştır; kişiye, akımın vücuttaki yoluna ve süresine göre değişir. Pil, USB ve akü doğru akım verir; doğru akımda eşikler daha yüksektir, yani bu ölçek onlar için temkinli bir gösterimdir.</p>
+        <p>Vücut direnci modeli sadeleştirilmiştir: 50 V'un altında kuru deri ≈ 100 kΩ, ıslak deri ≈ 10 kΩ; 230 V'ta deri direnci çöker ve kuru ≈ 2 kΩ, ıslak ≈ 1 kΩ olur.</p>
+        <p class="src">Kaynak: IEC 60479-1, Effects of current on human beings and livestock</p>
+      </div>
+    </section>
+
+    <!-- 06 -->
+    <section class="mp" id="mp-6" role="tabpanel" aria-labelledby="tab-6" hidden>
+      <p class="kicker">Modül 06 · Analog, dijital ve haberleşme</p>
+      <h2>Sinyal</h2>
+      <p class="lead">Doğa analogdur, bilgisayar dijitaldir. Haberleşme bu iki dünya arasında yapılan bir çeviridir.</p>
+      <div class="group"><div class="glabel" id="m6-l">Görünüm</div>
+        <div class="seg" role="group" aria-labelledby="m6-l" id="m6-view"><button data-v="scope" aria-pressed="true">Osiloskop</button><button data-v="radio" aria-pressed="false">Kablosuz iletim</button></div>
+      </div>
+      <div class="group"><label class="glabel" for="m6-noise"><span>Hattaki gürültü</span><output id="m6-no">%20</output></label><input type="range" id="m6-noise" min="0" max="100" step="5" value="20"></div>
+      <div class="group" id="m6-rg"><label class="glabel" for="m6-rate"><span>Örnekleme sıklığı</span><output id="m6-ro">16 ölçüm</output></label><input type="range" id="m6-rate" min="4" max="40" step="1" value="16"></div>
+      <dl class="readouts">
+        <div><dt>Gönderilen bayt</dt><dd id="m6-sent">01000001</dd></div>
+        <div><dt>Bit hatası</dt><dd id="m6-err">0 / 16</dd></div>
+        <div><dt>Alınan veri</dt><dd class="txt" id="m6-ok">Hatasız</dd></div>
+      </dl>
+      <div class="prose" id="m6-text"></div>
+      <h3 class="sub">Bilgisayarın dili</h3>
+      <p class="small">Her anahtar bir transistördür: akım geçiyorsa 1, geçmiyorsa 0. Sekiz anahtar bir bayt eder ve 256 farklı durumu temsil eder. Osiloskoptaki dijital hat bu baytı taşır.</p>
+      <div class="bits" id="m6-bits" role="group" aria-label="Sekiz anahtar"></div>
+      <dl class="readouts">
+        <div><dt>İkili</dt><dd id="m6-bin">01000001</dd></div>
+        <div><dt>Onluk</dt><dd id="m6-dec">65</dd></div>
+        <div><dt>Karakter</dt><dd id="m6-chr">A</dd></div>
+      </dl>
+      <div class="btn-row"><button class="btn" type="button" data-preset="65">A</button><button class="btn" type="button" data-preset="75">K</button><button class="btn" type="button" data-preset="53">5</button><button class="btn" type="button" data-preset="0">Sıfırla</button></div>
+      <div class="science"><h3>Bilimsel arka plan</h3>
+        <p>James Clerk Maxwell 1865'te elektromanyetik dalgaları denklemleriyle öngördü; Heinrich Hertz 1887'de varlıklarını gösterdi. Frekans birimi hertz (Hz) onun adını taşır. Müzik CD'leri sesi saniyede 44.100 kez örnekler. Gürültü çok artarsa dijitalde de hata oluşur; bu yüzden haberleşmede hata düzeltme kodları kullanılır.</p>
+      </div>
+    </section>
+  </aside>
+</main>
+
+<noscript><p style="padding:24px">Bu laboratuvar JavaScript gerektirir.</p></noscript>
+<script src="lib/three.min.js"></script>
+<script src="lib/OrbitControls.js"></script>
+<script src="lib/RoomEnvironment.js"></script>
+<script src="lib/textures.js"></script>
+<script src="lib/lab-core.js"></script>
+<script src="lib/lab-journey.js"></script>
+<script src="lib/lab-modules.js"></script>
+<script>if (window.KG) KG.start();</script>
+</body>
+</html>
