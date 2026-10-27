@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<title>KGViz deneme sahnesi</title>
+<link rel="stylesheet" href="../fonts.css">
+<style>
+  html, body { margin: 0; overflow: hidden; }
+  #v { position: relative; }
+  #readouts { margin: 0; padding: 6px 8px; font: 12px Consolas, monospace; white-space: pre; color: #15171C; }
+</style>
+</head>
+<body>
+<div id="v"></div>
+<pre id="readouts"></pre>
+<script src="../three.min.js"></script>
+<script src="../RoomEnvironment.js"></script>
+<script src="kg-viz.js"></script>
+<script src="viz-a.js"></script>
+<script src="viz-b.js"></script>
+<script src="viz-c.js"></script>
+<script src="viz-d.js"></script>
+<script src="viz-e.js"></script>
+<script src="viz-f.js"></script>
+<script src="viz-g.js"></script>
+<script src="viz-h.js"></script>
+<script src="viz-i.js"></script>
+<script src="viz-j.js"></script>
+<script src="viz-k.js"></script>
+<script src="viz-l.js"></script>
+<script src="viz-test.js"></script>
+<script>
+/*
+ * Kullanım:
+ *   harness.html?viz=ID&w=680&h=420&theme=light|dark|card&t=3.5
+ *                &opts={"x":1}&set=voltage:9;mode:forward&read=current,formula&scale=1
+ * t verilirse zaman 0'dan t'ye kadar 1/60 sn adımlarla ilerletilir ve yalnızca son kare çizilir.
+ * t verilmezse görsel canlı döngüde çalışır.
+ */
+(function () {
+  var q = new URLSearchParams(location.search);
+  var name = q.get('viz');
+  var w = +q.get('w') || 680, h = +q.get('h') || 420;
+  var theme = q.get('theme') || 'light';
+  var tParam = q.get('t');
+  var opts = q.get('opts') ? JSON.parse(q.get('opts')) : {};
+  var scale = +q.get('scale') || 1;
+  var bg = { light: KGViz.palette.paper, dark: KGViz.palette.night, card: '#FFFFFF' }[theme] || theme;
+  document.body.style.background = bg;
+  var el = document.getElementById('v');
+  el.style.width = w + 'px';
+  el.style.height = h + 'px';
+  KGViz.stageScale = scale;
+
+  function parseSets(s) {
+    if (!s) return [];
+    return s.split(';').filter(Boolean).map(function (pair) {
+      var i = pair.indexOf(':');
+      var k = pair.slice(0, i), v = pair.slice(i + 1);
+      return [k, /^-?\d+(\.\d+)?$/.test(v) ? parseFloat(v) : v];
+    });
+  }
+
+  function writeReadouts(inst) {
+    var keys = (q.get('read') || '').split(',').filter(Boolean);
+    if (!keys.length || !inst.read) return;
+    document.getElementById('readouts').textContent = keys.map(function (k) { return k + ' = ' + inst.read(k); }).join('\n');
+  }
+
+  document.fonts.ready.then(function () {
+    var inst = KGViz.create(name, el, opts);
+    if (!inst) { document.body.textContent = 'Görsel bulunamadı: ' + name + ' (kayıtlı: ' + KGViz.names().join(', ') + ')'; return; }
+    if (inst.reset) inst.reset();
+    parseSets(q.get('set')).forEach(function (kv) { if (inst.set) inst.set(kv[0], kv[1]); });
+    if (tParam !== null) {
+      var T = parseFloat(tParam), dt = 1 / 60, x = 0;
+      KGViz.skipRender = true;
+      while (x + dt < T) { x += dt; inst.frame(x, dt); }
+      KGViz.skipRender = false;
+      inst.frame(T, Math.max(0.0001, T - x));
+      writeReadouts(inst);
+      document.title = 'ready';
+      return;
+    }
+    var start = performance.now(), last = start;
+    (function loop(now) {
+      var dt = Math.min(0.05, (now - last) / 1000);
+      last = now;
+      inst.frame((now - start) / 1000, dt);
+      writeReadouts(inst);
+      requestAnimationFrame(loop);
+    })(start);
+  });
+})();
+</script>
+</body>
+</html>
